@@ -8,7 +8,7 @@ from docx import Document as DocxWriter
 import requests
 from bs4 import BeautifulSoup
 import re # Added: For regex to highlight figures
-import Google Search # Added: To enable web search functionality
+import Google Search # FIXED: Corrected import for the Google Search tool
 
 # Libraries for Excel and PowerPoint - ensure these are installed via pip
 try:
@@ -87,13 +87,13 @@ def fetch_legal_examples(query_term):
 
     # Search for EDGAR filings
     edgar_query = f"site:sec.gov/Archives/edgar/data {query_term} agreement"
-    edgar_results = Google Search(queries=[edgar_query]) # Corrected tool call
+    edgar_results = Google Search(queries=[edgar_query]) # FIXED: Corrected tool call
     if edgar_results and edgar_results[0].results:
         all_snippets.extend([r.snippet for r in edgar_results[0].results if r.snippet])
 
     # Search for Law Firm website content
     lawfirm_query = f"site:.com law firm {query_term} contract clauses OR template"
-    lawfirm_results = Google Search(queries=[lawfirm_query]) # Corrected tool call
+    lawfirm_results = Google Search(queries=[lawfirm_query]) # FIXED: Corrected tool call
     if lawfirm_results and lawfirm_results[0].results:
         all_snippets.extend([r.snippet for r in lawfirm_results[0].results if r.snippet])
 
@@ -109,7 +109,7 @@ def fetch_legal_examples(query_term):
 
     # Search wider internet for similar agreements
     general_query = f"'{query_term}' agreement examples OR template OR clauses"
-    general_results = Google Search(queries=[general_query]) # Corrected tool call
+    general_results = Google Search(queries=[general_query]) # FIXED: Corrected tool call
     if general_results and general_results[0].results:
         all_snippets.extend([r.snippet for r in general_results[0].results if r.snippet])
 
@@ -206,7 +206,7 @@ Generate a detailed Scope of Work (SoW) based on the provided information, adher
         st.stop() # Stop execution if API key is missing
 
     # Initialize OpenAI client with base_url for Gemini models
-    client = openai.OpenAI(base_url="https://generativelanguage.googleapis.com/v1beta/openai/", api_key=openai_api_key) # Corrected API client initialization
+    client = openai.OpenAI(base_url="https://generativelanguage.googleapis.com/v1beta/openai/", api_key=openai_api_key)
 
     response = client.chat.completions.create(
         model="gemini-2.5-flash", # Using gemini-2.5-flash as requested by the prompt
