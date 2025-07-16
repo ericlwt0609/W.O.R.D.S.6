@@ -66,6 +66,16 @@ def extract_ppt_text(file):
         return f"[Error extracting PPTX text: {e}]"
 
 # --- Web Scraping Functions (Internal, not exposed in UI) ---
+def fetch_text_from_url(url):
+    """Scrapes paragraphs from a given URL."""
+    try:
+        response = requests.get(url)
+        soup = BeautifulSoup(response.text, "html.parser")
+        paragraphs = soup.find_all('p')
+        return "\n".join(p.get_text(strip=True) for p in paragraphs[:10])
+    except Exception as e:
+        return f"[Error fetching URL content: {e}]"
+
 def fetch_legal_examples(query_term):
     """
     Fetches legal examples from various online sources using Google Search.
@@ -75,13 +85,13 @@ def fetch_legal_examples(query_term):
 
     # Search for EDGAR filings
     edgar_query = f"site:sec.gov/Archives/edgar/data {query_term} agreement"
-    edgar_results = google_search.search(queries=[edgar_query])
+    edgar_results = Google Search(queries=[edgar_query])
     if edgar_results and edgar_results[0].results:
         all_snippets.extend([r.snippet for r in edgar_results[0].results if r.snippet])
 
     # Search for Law Firm website content
     lawfirm_query = f"site:.com law firm {query_term} contract clauses OR template"
-    lawfirm_results = google_search.search(queries=[lawfirm_query])
+    lawfirm_results = Google Search(queries=[lawfirm_query])
     if lawfirm_results and lawfirm_results[0].results:
         all_snippets.extend([r.snippet for r in lawfirm_results[0].results if r.snippet])
 
@@ -97,14 +107,14 @@ def fetch_legal_examples(query_term):
 
     # Search wider internet for similar agreements
     general_query = f"'{query_term}' agreement examples OR template OR clauses"
-    general_results = google_search.search(queries=[general_query])
+    general_results = Google Search(queries=[general_query])
     if general_results and general_results[0].results:
         all_snippets.extend([r.snippet for r in general_results[0].results if r.snippet])
 
     return "\n---\n".join(all_snippets[:10]) # Limit to top 10 snippets for prompt size
 
 # --- LLM Interaction Function ---
-def generate_sow(base_text, user_desc, role_preference, existing_sow=None, feedback=None, additional_context=""):
+def generate_sow(base_text, user_desc, role_preference, combined_examples, existing_sow=None, feedback=None, additional_context=""):
     """
     Generates or refines a Scope of Work (SoW) using an LLM.
     Adjusts content based on role preference (pro-vendor/pro-client).
@@ -118,6 +128,8 @@ def generate_sow(base_text, user_desc, role_preference, existing_sow=None, feedb
         company_role = "Company"
         client_role = "Service Provider" # In this case, the 'Service Provider' is the external entity
         dependencies_guidance = "The dependencies to be provided by the Company (client) should be basic and minimal. Obligations of the Service Provider (the external entity) should be detailed and specific."
+
+    examples_text = "\n---\n".join(combined_examples) if combined_examples else "None included"
 
     # Base prompt structure for initial generation or refinement
     base_prompt_template = f"""
@@ -172,6 +184,10 @@ Base Document Extract (from uploaded files):
 {base_text}
 
 ---
+User-Provided and Automatically Fetched Example SoW Clauses:
+{examples_text}
+
+---
 Additional Context from Public Filings and Legal Resources:
 {additional_context if additional_context else "No additional relevant context found."}
 
@@ -179,7 +195,15 @@ Additional Context from Public Filings and Legal Resources:
 Generate a detailed Scope of Work (SoW) based on the provided information, adhering to the structure, role definitions, and highlighting rules. Also, suggest questions for missing or unclear details at the end of the generated SoW.
 """
 
-    client = openai.OpenAI(base_url="https://generativelanguage.googleapis.com/v1beta/openai/", api_key=os.getenv("OPENAI_API_KEY"))
+    # Get OpenAI API key
+    # Try st.secrets first (recommended for Streamlit Cloud), then os.getenv
+    openai_api_key = st.secrets.get("OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY")
+
+    if not openai_api_key:
+        st.error("OpenAI API key not found. Please set it in Streamlit secrets or as an environment variable.")
+        st.stop() # Stop execution if API key is missing
+
+    client = openai.OpenAI(base_url="https://generativelanguage.googleapis.com/v1beta/openai/", api_key=openai_api_key)
 
     response = client.chat.completions.create(
         model="gemini-2.5-flash", # Using gemini-2.5-flash as requested by the prompt
@@ -220,6 +244,14 @@ role_preference = st.radio(
     ("Company as Service Provider (Pro-Vendor)", "Company as Service Recipient (Pro-Client)")
 )
 
+# Reinstated sections for custom input
+custom_examples_input = st.text_area("Paste your own SoW clauses or content here (optional)")
+external_url = st.text_input("Paste a URL to extract external SoW-style clauses (optional)")
+
+# Keyword for additional search (changed header as requested)
+search_keyword = st.text_input("Keyword to search", value=user_desc)
+
+
 if st.button("Generate SoW"):
     if uploaded_file and user_desc:
         with st.spinner("Extracting text and gathering legal context..."):
@@ -238,14 +270,25 @@ if st.button("Generate SoW"):
                 st.error("Unsupported file type.")
                 st.stop()
 
-            # Automatically comb through public documents and legal resources
-            additional_context = fetch_legal_examples(user_desc) # Use user_desc for better search relevance
+            # Collect all examples, including user-provided and URL-scraped
+            combined_examples = []
+            if custom_examples_input.strip():
+                combined_examples.append(custom_examples_input.strip())
+            if external_url.strip():
+                # Fetch text from the URL and append
+                fetched_url_content = fetch_text_from_url(external_url.strip())
+                if fetched_url_content:
+                    combined_examples.append(fetched_url_content)
+
+            # Automatically comb through public documents and legal resources using the user-provided search_keyword
+            additional_context = fetch_legal_examples(search_keyword)
 
             # Generate SoW
             generated_sow_content = generate_sow(
                 base_text,
                 user_desc,
                 role_preference,
+                combined_examples=combined_examples, # Pass combined examples here
                 additional_context=additional_context
             )
 
@@ -254,6 +297,7 @@ if st.button("Generate SoW"):
             st.session_state.base_text = base_text
             st.session_state.user_desc = user_desc
             st.session_state.role_preference = role_preference
+            st.session_state.combined_examples = combined_examples # Store for consistent refinement
             st.session_state.additional_context = additional_context # Store context for consistent refinement
 
             # Show result with highlighting
@@ -293,6 +337,7 @@ if 'generated_sow' in st.session_state and st.session_state.generated_sow:
                     st.session_state.base_text,
                     st.session_state.user_desc,
                     st.session_state.role_preference,
+                    combined_examples=st.session_state.combined_examples, # Pass combined examples for context
                     existing_sow=st.session_state.generated_sow,
                     feedback=feedback_input,
                     additional_context=st.session_state.additional_context # Pass context for consistency
