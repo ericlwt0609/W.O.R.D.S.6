@@ -245,10 +245,14 @@ role_preference = st.radio(
 )
 
 # Reinstated sections for custom input
+st.markdown("---") # Separator for clarity
+st.subheader("Optional External Content") # Added subheader for these sections
 custom_examples_input = st.text_area("Paste your own SoW clauses or content here (optional)")
 external_url = st.text_input("Paste a URL to extract external SoW-style clauses (optional)")
 
 # Keyword for additional search (changed header as requested)
+st.markdown("---") # Separator for clarity
+st.subheader("Additional Search Context") # Added subheader for this section
 search_keyword = st.text_input("Keyword to search", value=user_desc)
 
 
