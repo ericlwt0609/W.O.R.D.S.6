@@ -1,8 +1,1 @@
-streamlit
-openai
-PyPDF2
-python-docx
-requests
-beautifulsoup4
-openpyxl
-python-pptx
+pip install streamlit openai PyPDF2 python-docx requests beautifulsoup4 openpyxl python-pptx
