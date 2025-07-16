@@ -7,8 +7,8 @@ from docx import Document
 from docx import Document as DocxWriter
 import requests
 from bs4 import BeautifulSoup
-import re # Added: For regex to highlight figures
-import Google Search # FIXED: Corrected import for the Google Search tool
+import re # For regex to highlight figures
+import google_search # Corrected import for the google_search tool
 
 # Libraries for Excel and PowerPoint - ensure these are installed via pip
 try:
@@ -87,13 +87,13 @@ def fetch_legal_examples(query_term):
 
     # Search for EDGAR filings
     edgar_query = f"site:sec.gov/Archives/edgar/data {query_term} agreement"
-    edgar_results = Google Search(queries=[edgar_query]) # FIXED: Corrected tool call
+    edgar_results = google_search.search(queries=[edgar_query]) # Corrected tool call
     if edgar_results and edgar_results[0].results:
         all_snippets.extend([r.snippet for r in edgar_results[0].results if r.snippet])
 
     # Search for Law Firm website content
     lawfirm_query = f"site:.com law firm {query_term} contract clauses OR template"
-    lawfirm_results = Google Search(queries=[lawfirm_query]) # FIXED: Corrected tool call
+    lawfirm_results = google_search.search(queries=[lawfirm_query]) # Corrected tool call
     if lawfirm_results and lawfirm_results[0].results:
         all_snippets.extend([r.snippet for r in lawfirm_results[0].results if r.snippet])
 
@@ -109,7 +109,7 @@ def fetch_legal_examples(query_term):
 
     # Search wider internet for similar agreements
     general_query = f"'{query_term}' agreement examples OR template OR clauses"
-    general_results = Google Search(queries=[general_query]) # FIXED: Corrected tool call
+    general_results = google_search.search(queries=[general_query]) # Corrected tool call
     if general_results and general_results[0].results:
         all_snippets.extend([r.snippet for r in general_results[0].results if r.snippet])
 
@@ -205,11 +205,10 @@ Generate a detailed Scope of Work (SoW) based on the provided information, adher
         st.error("OpenAI API key not found. Please set it in Streamlit secrets or as an environment variable.")
         st.stop() # Stop execution if API key is missing
 
-    # Initialize OpenAI client with base_url for Gemini models
     client = openai.OpenAI(base_url="https://generativelanguage.googleapis.com/v1beta/openai/", api_key=openai_api_key)
 
     response = client.chat.completions.create(
-        model="gemini-2.5-flash", # Using gemini-2.5-flash as requested by the prompt
+        model="gemini-2.5-flash",
         messages=[
             {"role": "system", "content": "You are a legal AI assistant specializing in contract drafting."},
             {"role": "user", "content": prompt}
@@ -232,28 +231,28 @@ def export_to_docx(content, file_name="Scope_of_Work.docx"):
     return temp_path.name
 
 # --- Streamlit UI ---
-st.title("AI Scope of Work (SoW) Generator") # Changed header
+st.title("AI Scope of Work (SoW) Generator") # (iv) Changed header
 
-# Document Upload Section
+# Document Upload Section (viii) Expanded to include Excel and PPT slides
 uploaded_file = st.file_uploader(
     "Upload all relevant/to-date client presentations, proposals, scope documents, and even base contracts (PDF, DOCX, XLSX, PPTX)",
-    type=["pdf", "docx", "xlsx", "pptx"] # Added XLSX, PPTX types
+    type=["pdf", "docx", "xlsx", "pptx"]
 )
 user_desc = st.text_area("Describe the goods/services and business context")
 
-# Role Selection
+# Role Selection (ix) Added section for user to click as to be generated for the Company as service provider or service recipient
 role_preference = st.radio(
     "Generate SoW for your Company as:",
     ("Company as Service Provider (Pro-Vendor)", "Company as Service Recipient (Pro-Client)")
 )
 
-# Reinstated sections for custom input
+# (xi) Reinstated sections for custom input
 st.markdown("---") # Separator for clarity
 st.subheader("Optional External Content") # Added subheader for these sections
 custom_examples_input = st.text_area("Paste your own SoW clauses or content here (optional)")
 external_url = st.text_input("Paste a URL to extract external SoW-style clauses (optional)")
 
-# Keyword for additional search (changed header as requested)
+# Keyword for additional search (i) Changed sub-header
 st.markdown("---") # Separator for clarity
 st.subheader("Additional Search Context") # Added subheader for this section
 search_keyword = st.text_input("Keyword to search", value=user_desc)
@@ -287,45 +286,46 @@ if st.button("Generate SoW"):
                 if fetched_url_content:
                     combined_examples.append(fetched_url_content)
 
-            # Automatically comb through public documents and legal resources using the user-provided search_keyword
+            # (ii) Automatically comb through public documents and legal resources
+            # (iii) Interface avoids mention of SEC, LawInsider, EDGAR etc.
             additional_context = fetch_legal_examples(search_keyword)
 
             # Generate SoW
             generated_sow_content = generate_sow(
                 base_text,
                 user_desc,
-                role_preference,
-                combined_examples=combined_examples, # Pass combined examples here
+                role_preference, # (ix) Pass role preference
+                combined_examples=combined_examples,
                 additional_context=additional_context
             )
 
-            # Store the generated SoW in session state for refinement
+            # Store the generated SoW in session state for iterative refinement
             st.session_state.generated_sow = generated_sow_content
             st.session_state.base_text = base_text
             st.session_state.user_desc = user_desc
-            st.session_state.role_preference = role_preference
+            st.session_state.role_preference = role_preference # Store for consistent refinement
             st.session_state.combined_examples = combined_examples # Store for consistent refinement
             st.session_state.additional_context = additional_context # Store context for consistent refinement
 
-            # Show result with highlighting
-            st.subheader("Generated Scope of Work")
-            st.markdown(generated_sow_content, unsafe_allow_html=True) # Display with highlighting
+            # Show result with highlighting (vii) Figures should be highlighted
+            st.subheader("Generated Scope of Work") # (vi) Changed reference
+            st.markdown(generated_sow_content, unsafe_allow_html=True)
 
             # Offer download
-            docx_path = export_to_docx(generated_sow_content, "Generated_Scope_of_Work.docx")
+            docx_path = export_to_docx(generated_sow_content, "Generated_Scope_of_Work.docx") # (vi) Changed reference
             with open(docx_path, "rb") as f:
-                st.download_button("Download SoW as DOCX", f, file_name="Generated_Scope_of_Work.docx")
+                st.download_button("Download SoW as DOCX", f, file_name="Generated_Scope_of_Work.docx") # (vi) Changed reference
     else:
         st.warning("Please upload a document and provide a description to generate the SoW.")
 
-# Iterative Refinement Section
+# Iterative Refinement Section (i) Made iterative
 st.markdown("---")
-st.subheader("Refine SoW") # Changed header
+st.subheader("Refine SoW") # (v) Changed header
 
 if 'generated_sow' in st.session_state and st.session_state.generated_sow:
     # Display the current SoW in a disabled text area
     st.text_area(
-        "Current Scope of Work (scroll to view full content)",
+        "Current Scope of Work (scroll to view full content)", # (vi) Changed reference
         value=st.session_state.generated_sow,
         height=400,
         disabled=True,
@@ -339,11 +339,11 @@ if 'generated_sow' in st.session_state and st.session_state.generated_sow:
 
     if st.button("Apply Refinement"):
         if feedback_input.strip():
-            with st.spinner("Refining Scope of Work..."):
+            with st.spinner("Refining Scope of Work..."): # (vi) Changed reference
                 refined_sow = generate_sow(
                     st.session_state.base_text,
                     st.session_state.user_desc,
-                    st.session_state.role_preference,
+                    st.session_state.role_preference, # Pass role preference for consistent refinement
                     combined_examples=st.session_state.combined_examples, # Pass combined examples for context
                     existing_sow=st.session_state.generated_sow,
                     feedback=feedback_input,
@@ -352,13 +352,13 @@ if 'generated_sow' in st.session_state and st.session_state.generated_sow:
                 st.session_state.generated_sow = refined_sow # Update the stored SoW for next iteration
 
                 st.success("Scope of Work updated based on your refinement.")
-                st.subheader("Refined Scope of Work")
+                st.subheader("Refined Scope of Work") # (vi) Changed reference
                 st.markdown(refined_sow, unsafe_allow_html=True) # Display with highlighting
 
                 # Offer download for refined SoW
-                docx_path = export_to_docx(refined_sow, "Refined_Scope_of_Work.docx")
+                docx_path = export_to_docx(refined_sow, "Refined_Scope_of_Work.docx") # (vi) Changed reference
                 with open(docx_path, "rb") as f:
-                    st.download_button("Download Refined SoW as DOCX", f, file_name="Refined_Scope_of_Work.docx")
+                    st.download_button("Download Refined SoW as DOCX", f, file_name="Refined_Scope_of_Work.docx") # (vi) Changed reference
         else:
             st.warning("Please type a suggestion before clicking 'Apply Refinement'.")
 else:
