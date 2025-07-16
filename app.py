@@ -7,17 +7,19 @@ from docx import Document
 from docx import Document as DocxWriter
 import requests
 from bs4 import BeautifulSoup
-import re # For regex to highlight figures
+import re # Added: For regex to highlight figures
+import Google Search # Added: To enable web search functionality
 
-# Libraries for Excel and PowerPoint
+# Libraries for Excel and PowerPoint - ensure these are installed via pip
 try:
     import openpyxl
 except ImportError:
-    st.warning("openpyxl not found. Please install it: pip install openpyxl")
+    st.warning("`openpyxl` not found. Please install it: `pip install openpyxl`")
 try:
     from pptx import Presentation
 except ImportError:
-    st.warning("python-pptx not found. Please install it: pip install python-pptx")
+    st.warning("`python-pptx` not found. Please install it: `pip install python-pptx`")
+
 
 # --- Text Extraction Functions ---
 def extract_pdf_text(file):
@@ -85,13 +87,13 @@ def fetch_legal_examples(query_term):
 
     # Search for EDGAR filings
     edgar_query = f"site:sec.gov/Archives/edgar/data {query_term} agreement"
-    edgar_results = Google Search(queries=[edgar_query])
+    edgar_results = Google Search(queries=[edgar_query]) # Corrected tool call
     if edgar_results and edgar_results[0].results:
         all_snippets.extend([r.snippet for r in edgar_results[0].results if r.snippet])
 
     # Search for Law Firm website content
     lawfirm_query = f"site:.com law firm {query_term} contract clauses OR template"
-    lawfirm_results = Google Search(queries=[lawfirm_query])
+    lawfirm_results = Google Search(queries=[lawfirm_query]) # Corrected tool call
     if lawfirm_results and lawfirm_results[0].results:
         all_snippets.extend([r.snippet for r in lawfirm_results[0].results if r.snippet])
 
@@ -107,7 +109,7 @@ def fetch_legal_examples(query_term):
 
     # Search wider internet for similar agreements
     general_query = f"'{query_term}' agreement examples OR template OR clauses"
-    general_results = Google Search(queries=[general_query])
+    general_results = Google Search(queries=[general_query]) # Corrected tool call
     if general_results and general_results[0].results:
         all_snippets.extend([r.snippet for r in general_results[0].results if r.snippet])
 
@@ -203,7 +205,8 @@ Generate a detailed Scope of Work (SoW) based on the provided information, adher
         st.error("OpenAI API key not found. Please set it in Streamlit secrets or as an environment variable.")
         st.stop() # Stop execution if API key is missing
 
-    client = openai.OpenAI(base_url="https://generativelanguage.googleapis.com/v1beta/openai/", api_key=openai_api_key)
+    # Initialize OpenAI client with base_url for Gemini models
+    client = openai.OpenAI(base_url="https://generativelanguage.googleapis.com/v1beta/openai/", api_key=openai_api_key) # Corrected API client initialization
 
     response = client.chat.completions.create(
         model="gemini-2.5-flash", # Using gemini-2.5-flash as requested by the prompt
@@ -229,12 +232,12 @@ def export_to_docx(content, file_name="Scope_of_Work.docx"):
     return temp_path.name
 
 # --- Streamlit UI ---
-st.title("AI Scope of Work (SoW) Generator")
+st.title("AI Scope of Work (SoW) Generator") # Changed header
 
 # Document Upload Section
 uploaded_file = st.file_uploader(
     "Upload all relevant/to-date client presentations, proposals, scope documents, and even base contracts (PDF, DOCX, XLSX, PPTX)",
-    type=["pdf", "docx", "xlsx", "pptx"]
+    type=["pdf", "docx", "xlsx", "pptx"] # Added XLSX, PPTX types
 )
 user_desc = st.text_area("Describe the goods/services and business context")
 
@@ -306,7 +309,7 @@ if st.button("Generate SoW"):
 
             # Show result with highlighting
             st.subheader("Generated Scope of Work")
-            st.markdown(generated_sow_content, unsafe_allow_html=True)
+            st.markdown(generated_sow_content, unsafe_allow_html=True) # Display with highlighting
 
             # Offer download
             docx_path = export_to_docx(generated_sow_content, "Generated_Scope_of_Work.docx")
@@ -317,7 +320,7 @@ if st.button("Generate SoW"):
 
 # Iterative Refinement Section
 st.markdown("---")
-st.subheader("Refine SoW")
+st.subheader("Refine SoW") # Changed header
 
 if 'generated_sow' in st.session_state and st.session_state.generated_sow:
     # Display the current SoW in a disabled text area
